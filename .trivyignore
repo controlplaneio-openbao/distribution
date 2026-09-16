@@ -1,0 +1,10 @@
+# The vulnerabilities listed here have no effect on OpenBao,
+# either because the vulnerable code paths are not used in OpenBao
+# or because the CVEs have been dismissed by upstream maintainers.
+#
+# Entries are also mirrored as OpenVEX statements under vex/<minor>.json.
+#
+# Format per finding:
+#   # status: not_affected
+#   # justification: vulnerable_code_not_in_execute_path
+#   CVE-YYYY-NNNNN

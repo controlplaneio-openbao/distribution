@@ -1,0 +1,10 @@
+{
+  "@context": "https://openvex.dev/ns/v0.2.0",
+  "@id": "https://openvex.dev/docs/public/vex-openbao-v2.6",
+  "author": "openbao-enterprise@control-plane.io",
+  "role": "Enterprise OpenBao Maintainers",
+  "timestamp": "2026-09-16T00:00:00Z",
+  "last_updated": "2026-09-16T00:00:00.000000+00:00",
+  "version": 1,
+  "statements": []
+}
