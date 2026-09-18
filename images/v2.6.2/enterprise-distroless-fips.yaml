@@ -1,0 +1,4 @@
+images:
+  - name: ghcr.io/controlplaneio/distroless-fips/openbao
+    newTag: v2.6.2
+    digest: sha256:f11cfbff29312582dfe219f1839c405140b8b22116b159c692c2719620d65257
