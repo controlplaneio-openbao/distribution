@@ -76,7 +76,7 @@ jobs:
         organization-url: ${{ secrets.ZULIP_ORGANIZATION_URL }}
         type: stream
         to: Distribution
-        topic: release-alerts
+        topic: openbao-releases
         content: |
           **New OpenBao minor release(s)**
 
@@ -133,7 +133,7 @@ jobs:
         organization-url: ${{ secrets.ZULIP_ORGANIZATION_URL }}
         type: stream
         to: Distribution
-        topic: release-alerts
+        topic: openbao-releases
         content: |
           **New OpenBao patch release(s) for supported minors**
 
