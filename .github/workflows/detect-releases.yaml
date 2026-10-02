@@ -1,0 +1,149 @@
+# Announce new upstream OpenBao releases.
+#
+# Runs on weekday mornings and on demand. Two independent jobs:
+#   * minor - a new upstream minor line this repository does not track yet
+#   * patch - a new patch on a minor line this repository already tracks
+#
+# "Already announced" is kept in notified-releases.json on the dedicated
+# release-alerts branch (see release-alerts.sh). Keeping the ledger off the
+# default branch makes a recorded version durable as soon as it is written,
+# so each version is announced at most once whether or not the distribution
+# adopts it, and without waiting for a pull request to merge.
+name: Detect new OpenBao releases
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Detect and print without notifying Zulip or recording state'
+        required: false
+        type: boolean
+        default: false
+  schedule:
+  - cron: '00 7 * * 1-5'
+
+permissions:
+  contents: write
+
+env:
+  GH_TOKEN: ${{ github.token }}
+  UPSTREAM_REPO: openbao/openbao
+  STATE_BRANCH: release-alerts
+  STATE_FILE: notified-releases.json
+
+jobs:
+  minor:
+    name: New minor releases
+    runs-on: ubuntu-latest
+    # Both jobs update the same ledger; serialise them so the read-modify-write
+    # in release-alerts.sh never races.
+    concurrency:
+      group: release-alerts-state
+      cancel-in-progress: false
+    steps:
+    - name: Checkout
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+    - name: Detect new minors
+      id: detect
+      shell: bash
+      run: |
+        set -euo pipefail
+        rows="$(bash .github/workflows/release-alerts.sh detect-minor)"
+        if [ -z "$rows" ]; then
+          echo "has_new=false" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+        minors=""
+        content=""
+        while IFS=$'\t' read -r minor latest; do
+          minors="${minors}${minors:+ }${minor}"
+          content="${content}- **${minor}** (latest ${latest}): https://github.com/${UPSTREAM_REPO}/releases/tag/${latest}"$'\n'
+        done <<<"$rows"
+        {
+          echo "has_new=true"
+          echo "minors=${minors}"
+          echo "content<<__EOF__"
+          printf '%s' "$content"
+          echo "__EOF__"
+        } >> "$GITHUB_OUTPUT"
+    - name: Notify Zulip
+      id: notify
+      if: steps.detect.outputs.has_new == 'true' && inputs.dry_run != true
+      uses: zulip/github-actions-zulip/send-message@f675f2b4eb2a95fae974215476dcb7ad8dfeff6b # v2.0.2
+      with:
+        email: ${{ secrets.ZULIP_EMAIL }}
+        api-key: ${{ secrets.ZULIP_API_KEY }}
+        organization-url: ${{ secrets.ZULIP_ORGANIZATION_URL }}
+        type: stream
+        to: Distribution
+        topic: release-alerts
+        content: |
+          **New OpenBao minor release(s)**
+
+          ${{ steps.detect.outputs.content }}
+    - name: Record notified minors
+      if: steps.detect.outputs.has_new == 'true' && inputs.dry_run != true && steps.notify.outcome == 'success'
+      shell: bash
+      env:
+        MINORS: ${{ steps.detect.outputs.minors }}
+      run: |
+        set -euo pipefail
+        # shellcheck disable=SC2086
+        bash .github/workflows/release-alerts.sh state-write minor $MINORS
+
+  patch:
+    name: New patch releases
+    runs-on: ubuntu-latest
+    concurrency:
+      group: release-alerts-state
+      cancel-in-progress: false
+    steps:
+    - name: Checkout
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+    - name: Detect new patches
+      id: detect
+      shell: bash
+      run: |
+        set -euo pipefail
+        tags="$(bash .github/workflows/release-alerts.sh detect-patch)"
+        if [ -z "$tags" ]; then
+          echo "has_new=false" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+        content=""
+        while read -r tag; do
+          content="${content}- **${tag}**: https://github.com/${UPSTREAM_REPO}/releases/tag/${tag}"$'\n'
+        done <<<"$tags"
+        {
+          echo "has_new=true"
+          echo "tags<<__EOF__"
+          printf '%s\n' "$tags"
+          echo "__EOF__"
+          echo "content<<__EOF__"
+          printf '%s' "$content"
+          echo "__EOF__"
+        } >> "$GITHUB_OUTPUT"
+    - name: Notify Zulip
+      id: notify
+      if: steps.detect.outputs.has_new == 'true' && inputs.dry_run != true
+      uses: zulip/github-actions-zulip/send-message@f675f2b4eb2a95fae974215476dcb7ad8dfeff6b # v2.0.2
+      with:
+        email: ${{ secrets.ZULIP_EMAIL }}
+        api-key: ${{ secrets.ZULIP_API_KEY }}
+        organization-url: ${{ secrets.ZULIP_ORGANIZATION_URL }}
+        type: stream
+        to: Distribution
+        topic: release-alerts
+        content: |
+          **New OpenBao patch release(s) for supported minors**
+
+          ${{ steps.detect.outputs.content }}
+    - name: Record notified patches
+      if: steps.detect.outputs.has_new == 'true' && inputs.dry_run != true && steps.notify.outcome == 'success'
+      shell: bash
+      env:
+        TAGS: ${{ steps.detect.outputs.tags }}
+      run: |
+        set -euo pipefail
+        # shellcheck disable=SC2086
+        bash .github/workflows/release-alerts.sh state-write patch $TAGS
