@@ -1,0 +1,6 @@
+# Suppressions scoped to the OpenBao v2.7 release. The stock
+# .trivyignore applies to all minors; entries here are for findings
+# specific to this minor, e.g. a CVE whose fix was backported via patch
+# so the shipped binary reads below the upstream fixed version.
+#
+# status: fixed (backported via patch)
