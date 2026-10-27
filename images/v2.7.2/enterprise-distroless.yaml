@@ -1,0 +1,4 @@
+images:
+  - name: ghcr.io/controlplaneio/distroless/openbao
+    newTag: v2.7.2
+    digest: sha256:554831370a89376a446751381a69dca1d9c0cb4a716bd504a4a6fb54e7783b19
