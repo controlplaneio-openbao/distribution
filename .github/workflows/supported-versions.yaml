@@ -1,0 +1,63 @@
+name: supported versions
+
+on:
+  workflow_call:
+    inputs:
+      num-versions:
+        description: 'number of most recent minor versions to return'
+        required: false
+        type: number
+        default: 3
+    outputs:
+      versions:
+        description: 'JSON array of supported image versions, e.g. ["v2.6.5", "v2.7.2"]'
+        value: ${{ jobs.supported-versions.outputs.versions }}
+
+jobs:
+  supported-versions:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      versions: ${{ steps.versions.outputs.versions }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.15'
+
+      - name: Install dependencies
+        run: pip install packaging
+
+      # Determine the most recent patch version of each major-minor version combination and return the specified number
+      # of most recent minor versions. Only the latest patch version of each major-minor combination is considered, we
+      # don't support multiple patch versions within the same major-minor combination.
+      - name: Determine supported versions
+        id: versions
+        shell: python
+        env:
+          NUM_VERSIONS: ${{ inputs.num-versions }}
+        run: |
+          import glob
+          import json
+          import os
+
+          from packaging.version import Version
+
+          num_versions = int(os.environ["NUM_VERSIONS"])
+          major_minor_versions = {}
+
+          for name in glob.glob('v*/', root_dir='images'):
+              ver = Version(name.rstrip('/')[1:])
+
+              key = (ver.major, ver.minor)
+              if key not in major_minor_versions or ver > major_minor_versions[key]:
+                  major_minor_versions[key] = ver
+
+          versions = [f'v{ver}' for ver in sorted(major_minor_versions.values())[-num_versions:]]
+
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"versions={json.dumps(versions)}\n")
